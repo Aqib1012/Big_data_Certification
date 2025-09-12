@@ -1,0 +1,5 @@
+to open folder in visual code 
+
+1.open a folder
+2.click on address bar and write cmd
+3.cmd will open now write code . 
