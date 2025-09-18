@@ -1,0 +1,28 @@
+######### INDENTATION #########
+######### LINE CONTINUATION ##########
+######### TYPE ##########
+######### VARIABLES ##########
+######### INPUT AND OPERATIONS #########
+######### COMPARISON #########
+#########  LOGICAL #########
+#########  CONTROL FLOW  #########
+## Assignment
+## Simple Calculator program
+# Take user input
+#########  RANGE AND FOR LOOP  #########
+#########  WHILE LOOP    #########
+## Example- Prime numbers between 1 and 100
+####### LIST ######
+#########  APPEND #######
+######### REMOVE #######
+######### POP    #######
+#########  COUNT & REVERSE  #######
+#########  SLICING  #######
+#########  LOOP IN LIST  #######
+#important for interviews
+############  LIST COMPHRENSION  – ASSIGNMNET ############
+############  TUPLES ############
+####Mutable objects inside tuples can be changed:
+#########  SETS #########
+############### set methods
+######discionary and methods
