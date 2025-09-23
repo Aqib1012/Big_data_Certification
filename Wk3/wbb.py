@@ -29,4 +29,3 @@ temp = readfile.groupby('Fsize')['Survived'].value_counts(normalize=True).reset_
 fig3, ax3 = plt.subplots(figsize=(6, 4))
 sns.barplot(x='Fsize',y='Percentage',data=temp)
 st.pyplot(fig3)
-
