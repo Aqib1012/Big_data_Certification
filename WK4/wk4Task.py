@@ -3,21 +3,27 @@ import pandas as pd
 import plotly.express as px
 import io
 
-st.set_page_config(page_title="🏏 Cricket Data EDA Dashboard", layout="wide")
-st.title("🏏 Cricket Data EDA Dashboard")
+st.set_page_config(page_title="🏏 Cricket Data Cleaning + EDA + Visualization + Stats", layout="wide")
+st.title("🏏 Cricket Data Cleaning + EDA + Visualization + Stats Dashboard")
 
 # --- Read CSV ---
-df = pd.read_csv("WK4/ODI_Match_info.csv")  # apna correct path rakho
+df = pd.read_csv("ODI_Match_info.csv")  # apna correct path rakho
+
+# --- Convert date column to datetime for better analysis ---
+if "date" in df.columns:
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df["year"] = df["date"].dt.year
 
 # --- Sidebar Options ---
-st.sidebar.header("📊 EDA & Analysis")
+st.sidebar.header("📊 EDA, Cleaning & Analysis")
 option = st.sidebar.radio(
     "Select what to view:",
     (
-        "Dataset Preview",
+        "Dataset Preview",  
         "Info",
         "Describe",
         "Missing Values",
+        "Data Cleaning",
         "Duplicates",
         "Value Counts",
         "Unique Values Count",
@@ -28,35 +34,53 @@ option = st.sidebar.radio(
 
 # --- Display According to Selection ---
 if option == "Dataset Preview":
-    st.subheader("🔍 Dataset Preview (Top 10 Rows By Using head())")
+    st.subheader("🔍 Dataset Preview (Top 10 Rows)")
     st.dataframe(df.head(10))
 
 elif option == "Info":
-    st.subheader("ℹ️ Dataset Info By Using info()")
+    st.subheader("ℹ️ Dataset Info")
     buffer = io.StringIO()
     df.info(buf=buffer)
     s = buffer.getvalue()
     st.text(s)
 
 elif option == "Describe":
-    st.subheader("📊 Summary Statistics By Using describe()")
+    st.subheader("📊 Summary Statistics")
     st.dataframe(df.describe(include="all"))
 
 elif option == "Missing Values":
-    st.subheader("🚨 Missing Values per Column By Using isnull().sum()")
+    st.subheader("🚨 Missing Values per Column")
     st.dataframe(df.isnull().sum())
 
+elif option == "Data Cleaning":
+    st.subheader("🧹 Data Cleaning")
+    st.write("Choose an action to handle missing values or duplicates:")
+    
+    if st.button("Drop Rows with Missing Values"):
+        df.dropna(inplace=True)
+        st.success("✅ Rows with missing values dropped successfully.")
+    
+    if st.button("Fill Missing Values with 'Unknown'"):
+        df.fillna("Unknown", inplace=True)
+        st.success("✅ Missing values filled with 'Unknown'.")
+    
+    if st.button("Drop Duplicate Rows"):
+        before = len(df)
+        df.drop_duplicates(inplace=True)
+        after = len(df)
+        st.success(f"✅ {before - after} duplicate rows removed successfully.")
+
 elif option == "Duplicates":
-    st.subheader("📑 Duplicate Rows Count By Using duplicated().sum()")
+    st.subheader("📑 Duplicate Rows Count")
     st.write(f"Total Duplicates: {df.duplicated().sum()}")
 
 elif option == "Value Counts":
-    st.subheader("📊 Value Counts By Using value_counts()")
+    st.subheader("📊 Value Counts")
     col = st.selectbox("Select Column", df.columns)
     st.dataframe(df[col].value_counts())
 
 elif option == "Unique Values Count":
-    st.subheader("🔢 Number of Unique Values By Using nunique().reset_index()")
+    st.subheader("🔢 Number of Unique Values")
     unique_counts = df.nunique().reset_index()
     unique_counts.columns = ["Column", "Unique Count"]
     st.dataframe(unique_counts)
@@ -65,7 +89,7 @@ elif option == "Visualizations":
     st.subheader("📊 Visualizations")
     chart_type = st.selectbox(
         "Choose Chart",
-        ("Toss Winners (Bar)", "Toss Decision (Pie)", "Matches Per Season (Bar)")
+        ("Toss Winners (Bar)", "Toss Decision (Pie)", "Matches Per Season (Bar)", "Histogram: Runs/Wickets")
     )
 
     if chart_type == "Toss Winners (Bar)":
@@ -87,6 +111,11 @@ elif option == "Visualizations":
         season_counts.columns = ["Season", "Matches"]
         season_counts = season_counts.sort_values("Season")
         fig = px.bar(season_counts, x="Season", y="Matches", title="Matches Per Season")
+        st.plotly_chart(fig, use_container_width=True)
+
+    elif chart_type == "Histogram: Runs/Wickets":
+        numeric_col = st.selectbox("Select Numeric Column", ["win_by_runs", "win_by_wickets"])
+        fig = px.histogram(df, x=numeric_col, nbins=30, title=f"Distribution of {numeric_col}")
         st.plotly_chart(fig, use_container_width=True)
 
 elif option == "Stats & Insights":
@@ -119,3 +148,16 @@ elif option == "Stats & Insights":
         barmode="stack"
     )
     st.plotly_chart(fig2, use_container_width=True)
+
+    st.subheader("📊 Matches per Year + Team (Stacked Bar)")
+    if "year" in df.columns:
+        year_team = df.groupby(["year", "team1"]).size().reset_index(name="Matches")
+        fig3 = px.bar(
+            year_team,
+            x="year",
+            y="Matches",
+            color="team1",
+            title="Matches per Year by Team",
+            barmode="stack"
+        )
+        st.plotly_chart(fig3, use_container_width=True)
