@@ -7,7 +7,7 @@ st.set_page_config(page_title="🏏 Cricket Data EDA Dashboard", layout="wide")
 st.title("🏏 Cricket Data EDA Dashboard")
 
 # --- Read CSV ---
-df = pd.read_csv("WK4/ODI_Match_info.csv")  # ✅ correct path here
+df = pd.read_csv("WK4/ODI_Match_info.csv") 
 
 # --- Sidebar Options ---
 st.sidebar.header("📊 EDA & Analysis")
