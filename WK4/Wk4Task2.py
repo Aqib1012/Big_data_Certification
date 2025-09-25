@@ -33,7 +33,7 @@ st.title("📱 Google Play Store Apps EDA Dashboard")
 st.markdown("Explore, clean, and visualize Google Play Store data with a **professional, modern dashboard**.")
 
 # --- Load Dataset ---
-df = pd.read_csv("googleplaystore.csv")
+df = pd.read_csv("WK4/googleplaystore.csv")
 df.columns = df.columns.str.strip()
 
 # --- Data Cleaning ---
