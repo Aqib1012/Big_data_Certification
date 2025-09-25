@@ -164,3 +164,4 @@ elif option == "Stats & Insights":
     st.subheader("📅 Multi-Level Aggregation: Matches per Season + Toss Winner")
     multi = df.groupby(["season", "toss_winner"]).size().reset_index(name="Matches")
     st.dataframe(multi)
+
