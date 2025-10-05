@@ -164,7 +164,7 @@ def main():
             if user_question.strip():
                 with st.spinner("Thinking..."):
                     response = client.chat.completions.create(
-                        model="gpt-4o-mini",  # supported model
+                        model="llama-3.3-70b-versatile",  # supported model
                         messages=[
                             {"role": "system", "content": "You are a cricket data analyst. Answer based on ODI cricket facts."},
                             {"role": "user", "content": user_question}
