@@ -65,8 +65,11 @@ def build_pdf(title, filters_text, summary_dict, fig_bytes_list):
     pdf.cell(0, 8, 'Summary', ln=True)
     pdf.ln(2)
     pdf.set_font('Arial', '', 12)
-    for k, v in summary_dict.items():
-        pdf.cell(0, 8, f'{k}: {v}', ln=True)
+    if isinstance(summary_dict, dict):
+        for k, v in summary_dict.items():
+            pdf.cell(0, 8, f'{k}: {v}', ln=True)
+    else:
+        pdf.multi_cell(0, 8, summary_dict)  # if it's AI text summary
     pdf.ln(4)
 
     # Add charts
@@ -139,9 +142,11 @@ def main():
     fig2 = make_total_runs_hist_fig(filtered)
     col2.pyplot(fig2)
 
-    # Generate PDF
+    # --------------------------- #
+    # Generate PDF from filtered data
+    # --------------------------- #
     st.markdown("---")
-    st.subheader("Generate PDF Report")
+    st.subheader("Generate PDF Report from Filters")
     report_title = st.text_input("Report title", value="ODI Matches Report")
     filters_text = f"Date: {date_range[0]} to {date_range[1]}; Seasons: {', '.join(map(str, selected_seasons))}; Team: {selected_team}; Venue: {selected_venue}"
 
@@ -151,20 +156,73 @@ def main():
         st.download_button("📄 Download PDF", data=pdf_file, file_name="odi_matches_report.pdf", mime="application/pdf")
 
     # --------------------------- #
-    # Groq AI Assistant Section
+    # Groq AI Assistant for Team/Year PDF
     # --------------------------- #
     st.markdown("---")
-    st.subheader("🤖 Ask AI about ODI Matches")
-    user_question = st.text_input("Ask any question about ODI matches or this dataset:")
+    st.subheader("🤖 AI Team/Year PDF Generator")
+    team_input = st.text_input("Enter Team (for AI summary)", key="team_input")
+    year_input = st.text_input("Enter Year (for AI summary)", key="year_input")
 
     groq_api_key = os.getenv("GROQ_API_KEY")
     if groq_api_key:
         client = Groq(api_key=groq_api_key)
-        if st.button("Ask AI"):
+    else:
+        st.warning("⚠️ Groq API key not found.")
+        return
+
+    if st.button("Generate AI Team/Year PDF"):
+        if not team_input or not year_input:
+            st.warning("Please enter both Team and Year.")
+        else:
+            df['date'] = pd.to_datetime(df['date'])
+            filtered_ai = df[
+                ((df['team1'] == team_input) | (df['team2'] == team_input)) &
+                (df['date'].dt.year == int(year_input))
+            ]
+
+            if filtered_ai.empty:
+                st.warning("No matches found for this team/year.")
+            else:
+                # Charts
+                fig1_ai = make_matches_per_year_fig(filtered_ai)
+                fig2_ai = make_total_runs_hist_fig(filtered_ai)
+                figs_bytes_ai = [fig_to_bytes(fig1_ai), fig_to_bytes(fig2_ai)]
+
+                # Ask AI for summary
+                with st.spinner("Generating AI summary..."):
+                    prompt = f"Summarize ODI matches for {team_input} in {year_input} with top players, winners, and scores."
+                    response = client.chat.completions.create(
+                        model="llama-3.3-70b-versatile",
+                        messages=[
+                            {"role": "system", "content": "You are a cricket analyst."},
+                            {"role": "user", "content": prompt}
+                        ]
+                    )
+                    summary_text = response.choices[0].message.content
+
+                # Build PDF
+                filters_text_ai = f"Team: {team_input}; Year: {year_input}"
+                pdf_file_ai = build_pdf(f"{team_input} ODI Stats {year_input}", filters_text_ai, summary_text, figs_bytes_ai)
+
+                st.success("AI PDF Generated ✅")
+                st.download_button("📄 Download AI PDF", data=pdf_file_ai, file_name=f"{team_input}_ODI_{year_input}_report.pdf", mime="application/pdf")
+                st.subheader("AI Summary")
+                st.write(summary_text)
+
+    # --------------------------- #
+    # Groq AI Assistant for Q&A
+    # --------------------------- #
+    st.markdown("---")
+    st.subheader("🤖 Ask AI about ODI Matches")
+    user_question = st.text_input("Ask any question about ODI matches or this dataset:", key="qna_input")
+
+    if groq_api_key:
+        client = Groq(api_key=groq_api_key)
+        if st.button("Ask AI Question"):
             if user_question.strip():
                 with st.spinner("Thinking..."):
                     response = client.chat.completions.create(
-                        model="llama-3.3-70b-versatile",  # supported model
+                        model="llama-3.3-70b-versatile",
                         messages=[
                             {"role": "system", "content": "You are a cricket data analyst. Answer based on ODI cricket facts."},
                             {"role": "user", "content": user_question}
@@ -175,9 +233,6 @@ def main():
                     st.write(answer)
             else:
                 st.warning("Please enter a question.")
-    else:
-        st.warning("⚠️ Groq API key not found. Set it in CMD using: setx GROQ_API_KEY \"your_groq_api_key_here\"")
 
-# Run app
 if __name__ == "__main__":
     main()
