@@ -47,7 +47,7 @@ class PDFReport(FPDF):
         self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
 
 # --------------------------- #
-# PDF Builder Function
+# PDF Builder Function (fixed for BytesIO)
 # --------------------------- #
 def build_pdf(title, filters_text, summary_dict, fig_bytes_list):
     pdf = PDFReport()
@@ -82,10 +82,9 @@ def build_pdf(title, filters_text, summary_dict, fig_bytes_list):
             tmp.close()
             pdf.image(tmp.name, x=15, y=30, w=180)
 
-    out = BytesIO()
-    pdf.output(out)
-    out.seek(0)
-    return out
+    # Output PDF as BytesIO for Streamlit
+    pdf_bytes = pdf.output(dest='S').encode('latin1')
+    return BytesIO(pdf_bytes)
 
 # --------------------------- #
 # Main Streamlit App
@@ -165,7 +164,7 @@ def main():
             if user_question.strip():
                 with st.spinner("Thinking..."):
                     response = client.chat.completions.create(
-                        model="llama-3.3-70b-versatile",  # supported model
+                        model="gpt-4o-mini",  # supported model
                         messages=[
                             {"role": "system", "content": "You are a cricket data analyst. Answer based on ODI cricket facts."},
                             {"role": "user", "content": user_question}
