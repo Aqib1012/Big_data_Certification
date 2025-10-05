@@ -1,3 +1,4 @@
+# app.py
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -5,11 +6,15 @@ from io import BytesIO
 from datetime import datetime
 from fpdf import FPDF
 from utils import load_data, filter_data, make_matches_per_year_fig, make_total_runs_hist_fig, fig_to_bytes
-import tempfile
+import os
+from groq import Groq
 
+# Streamlit page setup
 st.set_page_config(page_title="ODI Matches PDF Report", layout="wide")
 
-# ---------- Summary ----------
+# --------------------------- #
+# Summary Helper Function
+# --------------------------- #
 def create_summary(df):
     total_matches = len(df)
     winners = df['winner'].dropna()
@@ -27,7 +32,9 @@ def create_summary(df):
         "Average win by wickets": round(avg_win_by_wickets, 2)
     }
 
-# ---------- PDF Class ----------
+# --------------------------- #
+# PDF Report Class
+# --------------------------- #
 class PDFReport(FPDF):
     def header(self):
         self.set_font('Arial', 'B', 14)
@@ -39,7 +46,9 @@ class PDFReport(FPDF):
         self.set_font('Arial', 'I', 8)
         self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
 
-# ---------- PDF Builder ----------
+# --------------------------- #
+# PDF Builder Function
+# --------------------------- #
 def build_pdf(title, filters_text, summary_dict, fig_bytes_list):
     pdf = PDFReport()
     pdf.add_page()
@@ -63,25 +72,28 @@ def build_pdf(title, filters_text, summary_dict, fig_bytes_list):
     # Add charts
     for b in fig_bytes_list:
         pdf.add_page()
-        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
-        tmp.write(b.getbuffer() if hasattr(b, "getbuffer") else b)
-        tmp.flush()
-        tmp.close()
-        pdf.image(tmp.name, x=15, y=30, w=180)
+        try:
+            pdf.image(b, x=15, y=30, w=180)
+        except Exception:
+            import tempfile
+            tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+            tmp.write(b.getbuffer() if hasattr(b, "getbuffer") else b)
+            tmp.flush()
+            tmp.close()
+            pdf.image(tmp.name, x=15, y=30, w=180)
 
-    # Output PDF to memory
-    tmp_pdf = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
-    pdf.output(tmp_pdf.name)
-    tmp_pdf.seek(0)
-    with open(tmp_pdf.name, "rb") as f:
-        pdf_bytes = f.read()
-    return BytesIO(pdf_bytes)
+    out = BytesIO()
+    pdf.output(out)
+    out.seek(0)
+    return out
 
-# ---------- Main ----------
+# --------------------------- #
+# Main Streamlit App
+# --------------------------- #
 def main():
     st.title("🏏 ODI Matches — PDF Report Generator")
 
-    # Load data
+    # Load dataset
     df = load_data('ODI_Match_info.csv')
 
     # Sidebar filters
@@ -111,11 +123,10 @@ def main():
 
     st.subheader("Filtered Matches")
     st.write(f"Showing **{len(filtered)}** matches")
-    st.dataframe(filtered[['date', 'team1', 'team2', 'winner', 'venue', 'player_of_match']]
-                 .sort_values('date', ascending=False).reset_index(drop=True).head(200))
+    st.dataframe(filtered[['date', 'team1', 'team2', 'winner', 'venue', 'player_of_match']].sort_values('date', ascending=False).reset_index(drop=True).head(200))
 
     # KPIs
-    st.subheader("Key Metrics")
+    st.subheader("Key metrics")
     summary = create_summary(filtered)
     cols = st.columns(5)
     for i, (k, v) in enumerate(summary.items()):
@@ -135,15 +146,42 @@ def main():
     report_title = st.text_input("Report title", value="ODI Matches Report")
     filters_text = f"Date: {date_range[0]} to {date_range[1]}; Seasons: {', '.join(map(str, selected_seasons))}; Team: {selected_team}; Venue: {selected_venue}"
 
-    if st.button("📄 Generate & Download PDF"):
+    if st.button("Generate & Download PDF"):
         figs_bytes = [fig_to_bytes(fig1), fig_to_bytes(fig2)]
         pdf_file = build_pdf(report_title, filters_text, summary, figs_bytes)
-        st.download_button(
-            label="⬇️ Download PDF",
-            data=pdf_file,
-            file_name="odi_matches_report.pdf",
-            mime="application/pdf"
-        )
+        st.download_button("📄 Download PDF", data=pdf_file, file_name="odi_matches_report.pdf", mime="application/pdf")
 
+    # --------------------------- #
+    # Groq AI Assistant Section
+    # --------------------------- #
+    st.markdown("---")
+    st.subheader("🤖 Ask AI about ODI Matches")
+
+    user_question = st.text_input("Ask any question about ODI matches or this dataset:")
+
+    # Initialize Groq client using environment variable
+    groq_api_key = os.getenv("GROQ_API_KEY") 
+    if groq_api_key:
+        client = Groq(api_key=groq_api_key)
+
+        if st.button("Ask AI"):
+            if user_question.strip():
+                with st.spinner("Thinking..."):
+                    response = client.chat.completions.create(
+                        model="llama3-8b-8192",
+                        messages=[
+                            {"role": "system", "content": "You are a cricket data analyst. Answer based on ODI cricket facts."},
+                            {"role": "user", "content": user_question}
+                        ]
+                    )
+                    answer = response.choices[0].message.content
+                    st.success("**AI Answer:**")
+                    st.write(answer)
+            else:
+                st.warning("Please enter a question.")
+    else:
+        st.warning("⚠️ Groq API key not found. Set it in CMD using: setx GROQ_API_KEY \"your_groq_api_key_here\"")
+
+# Run app
 if __name__ == "__main__":
     main()
