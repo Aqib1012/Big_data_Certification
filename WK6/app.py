@@ -9,7 +9,9 @@ from utils import load_data, filter_data, make_matches_per_year_fig, make_total_
 import os
 from groq import Groq
 
+# --------------------------- #
 # Streamlit page setup
+# --------------------------- #
 st.set_page_config(page_title="ODI Matches PDF Report", layout="wide")
 
 # --------------------------- #
@@ -123,7 +125,8 @@ def main():
 
     st.subheader("Filtered Matches")
     st.write(f"Showing **{len(filtered)}** matches")
-    st.dataframe(filtered[['date', 'team1', 'team2', 'winner', 'venue', 'player_of_match']].sort_values('date', ascending=False).reset_index(drop=True).head(200))
+    st.dataframe(filtered[['date', 'team1', 'team2', 'winner', 'venue', 'player_of_match']]
+                 .sort_values('date', ascending=False).reset_index(drop=True).head(200))
 
     # KPIs
     st.subheader("Key metrics")
@@ -159,8 +162,7 @@ def main():
 
     user_question = st.text_input("Ask any question about ODI matches or this dataset:")
 
-    # Initialize Groq client using environment variable
-    groq_api_key = os.getenv("GROQ_API_KEY") 
+    groq_api_key = os.getenv("GROQ_API_KEY")
     if groq_api_key:
         client = Groq(api_key=groq_api_key)
 
@@ -168,7 +170,7 @@ def main():
             if user_question.strip():
                 with st.spinner("Thinking..."):
                     response = client.chat.completions.create(
-                        model="llama3-8b-8192",
+                        model="llama3-7b",  # naya supported model
                         messages=[
                             {"role": "system", "content": "You are a cricket data analyst. Answer based on ODI cricket facts."},
                             {"role": "user", "content": user_question}
