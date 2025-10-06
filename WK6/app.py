@@ -96,7 +96,7 @@ def main():
     st.title("🏏 ODI Matches — PDF Report Generator")
 
     # Load dataset
-    df = load_data('WK6\ODI_Match_info.csv')
+    df = load_data('ODI_Match_info.csv')
 
     # Sidebar Filters
     st.sidebar.header("Filters")
