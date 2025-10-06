@@ -157,65 +157,46 @@ def main():
         st.download_button("📄 Download PDF", data=pdf_file, file_name="odi_matches_report.pdf", mime="application/pdf")
 
     # --------------------------- #
-    # AI Team/Year Summary
+    # AI Summary without Team/Year input
     # --------------------------- #
     st.markdown("---")
-    st.subheader("🤖 AI Team/Year Summary & PDF")
-    team_input_ai = st.text_input("Enter Team", key="team_input_ai")
-    year_input_ai = st.text_input("Enter Year", key="year_input_ai")
+    st.subheader("🤖 AI Summary PDF")
 
     groq_api_key = os.getenv("GROQ_API_KEY")
     client = Groq(api_key=groq_api_key) if groq_api_key else None
     if not client:
         st.warning("⚠️ Groq API key not found.")
 
-    summary_text_ai = None
+    # User generates AI summary via a button or some other method
+    if 'ai_summary' not in st.session_state:
+        st.session_state.ai_summary = ""
 
-    if st.button("Generate AI Summary & PDF"):
-        if not team_input_ai or not year_input_ai:
-            st.warning("Please enter both Team and Year.")
-        elif client:
-            df['date'] = pd.to_datetime(df['date'])
-            filtered_ai = df[
-                ((df['team1'] == team_input_ai) | (df['team2'] == team_input_ai)) &
-                (df['date'].dt.year == int(year_input_ai))
-            ]
-
-            if filtered_ai.empty:
-                st.warning("No matches found for this team/year.")
-            else:
-                # Charts
-                fig1_ai = make_matches_per_year_fig(filtered_ai)
-                fig2_ai = make_total_runs_hist_fig(filtered_ai)
-                figs_bytes_ai = [fig_to_bytes(fig1_ai), fig_to_bytes(fig2_ai)]
-
-                # AI summary
-                with st.spinner("Generating AI summary..."):
-                    prompt = f"Summarize ODI matches for {team_input_ai} in {year_input_ai} with top players, winners, and scores."
-                    response = client.chat.completions.create(
-                        model="llama-3.3-70b-versatile",
-                        messages=[
-                            {"role": "system", "content": "You are a cricket analyst."},
-                            {"role": "user", "content": prompt}
-                        ]
-                    )
-                    summary_text_ai = response.choices[0].message.content
-
-                # Display summary
+    if st.button("Generate AI Summary"):
+        if client:
+            prompt = "Summarize ODI matches dataset with top players, winners, and notable stats."
+            with st.spinner("Generating AI summary..."):
+                response = client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=[
+                        {"role": "system", "content": "You are a cricket analyst."},
+                        {"role": "user", "content": prompt}
+                    ]
+                )
+                st.session_state.ai_summary = response.choices[0].message.content
                 st.success("AI Summary Generated ✅")
-                st.subheader("AI Summary")
-                st.write(summary_text_ai)
 
-                # Separate PDF button for the AI summary
-                if st.button("📄 Download AI Summary PDF"):
-                    filters_text_ai = f"Team: {team_input_ai}; Year: {year_input_ai}"
-                    pdf_file_ai = build_pdf("AI ODI Summary", filters_text_ai, summary_text_ai, figs_bytes_ai)
-                    st.download_button(
-                        "📄 Download PDF",
-                        data=pdf_file_ai,
-                        file_name=f"{team_input_ai}_ODI_AI_summary.pdf",
-                        mime="application/pdf"
-                    )
+    if st.session_state.ai_summary:
+        st.subheader("AI Summary")
+        st.write(st.session_state.ai_summary)
+
+        if st.button("📄 Download AI Summary PDF"):
+            pdf_file_ai = build_pdf("AI ODI Summary", "AI Generated Summary", st.session_state.ai_summary)
+            st.download_button(
+                "📄 Download PDF",
+                data=pdf_file_ai,
+                file_name="ODI_AI_summary.pdf",
+                mime="application/pdf"
+            )
 
     # --------------------------- #
     # AI Q&A Section
