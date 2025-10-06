@@ -9,11 +9,13 @@ from utils import load_data, filter_data, make_matches_per_year_fig, make_total_
 import os
 from groq import Groq
 
+# --------------------------- #
 # Streamlit page setup
+# --------------------------- #
 st.set_page_config(page_title="ODI Matches PDF Report", layout="wide")
 
 # --------------------------- #
-# Summary Helper Function
+# Helper Functions
 # --------------------------- #
 def create_summary(df):
     total_matches = len(df)
@@ -47,9 +49,9 @@ class PDFReport(FPDF):
         self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
 
 # --------------------------- #
-# PDF Builder Function (fixed for BytesIO)
+# PDF Builder
 # --------------------------- #
-def build_pdf(title, filters_text, summary_dict, fig_bytes_list):
+def build_pdf(title, filters_text, summary_dict_or_text, fig_bytes_list):
     pdf = PDFReport()
     pdf.add_page()
     pdf.set_font('Arial', 'B', 20)
@@ -65,14 +67,13 @@ def build_pdf(title, filters_text, summary_dict, fig_bytes_list):
     pdf.cell(0, 8, 'Summary', ln=True)
     pdf.ln(2)
     pdf.set_font('Arial', '', 12)
-    if isinstance(summary_dict, dict):
-        for k, v in summary_dict.items():
+    if isinstance(summary_dict_or_text, dict):
+        for k, v in summary_dict_or_text.items():
             pdf.cell(0, 8, f'{k}: {v}', ln=True)
     else:
-        pdf.multi_cell(0, 8, summary_dict)  # if it's AI text summary
+        pdf.multi_cell(0, 8, summary_dict_or_text)
     pdf.ln(4)
 
-    # Add charts
     for b in fig_bytes_list:
         pdf.add_page()
         try:
@@ -85,12 +86,11 @@ def build_pdf(title, filters_text, summary_dict, fig_bytes_list):
             tmp.close()
             pdf.image(tmp.name, x=15, y=30, w=180)
 
-    # Output PDF as BytesIO for Streamlit
     pdf_bytes = pdf.output(dest='S').encode('latin1')
     return BytesIO(pdf_bytes)
 
 # --------------------------- #
-# Main Streamlit App
+# Main App
 # --------------------------- #
 def main():
     st.title("🏏 ODI Matches — PDF Report Generator")
@@ -98,7 +98,7 @@ def main():
     # Load dataset
     df = load_data('ODI_Match_info.csv')
 
-    # Sidebar filters
+    # Sidebar Filters
     st.sidebar.header("Filters")
     min_date = df['date'].min()
     max_date = df['date'].max()
@@ -113,7 +113,7 @@ def main():
     venue_list = sorted(df['venue'].dropna().unique().tolist()) if 'venue' in df.columns else []
     selected_venue = st.sidebar.selectbox("Venue", options=["All"] + venue_list)
 
-    # Apply filters
+    # Apply Filters
     filtered = filter_data(
         df,
         date_from=pd.to_datetime(date_range[0]),
@@ -125,7 +125,8 @@ def main():
 
     st.subheader("Filtered Matches")
     st.write(f"Showing **{len(filtered)}** matches")
-    st.dataframe(filtered[['date', 'team1', 'team2', 'winner', 'venue', 'player_of_match']].sort_values('date', ascending=False).reset_index(drop=True).head(200))
+    st.dataframe(filtered[['date', 'team1', 'team2', 'winner', 'venue', 'player_of_match']]
+                 .sort_values('date', ascending=False).reset_index(drop=True).head(200))
 
     # KPIs
     st.subheader("Key metrics")
@@ -143,7 +144,7 @@ def main():
     col2.pyplot(fig2)
 
     # --------------------------- #
-    # Generate PDF from filtered data
+    # Normal Filter PDF
     # --------------------------- #
     st.markdown("---")
     st.subheader("Generate PDF Report from Filters")
@@ -156,12 +157,12 @@ def main():
         st.download_button("📄 Download PDF", data=pdf_file, file_name="odi_matches_report.pdf", mime="application/pdf")
 
     # --------------------------- #
-    # Groq AI Assistant for Team/Year PDF
+    # AI Team/Year PDF (Separate Button)
     # --------------------------- #
     st.markdown("---")
-    st.subheader("🤖 AI Team/Year PDF Generator")
-    team_input = st.text_input("Enter Team (for AI summary)", key="team_input")
-    year_input = st.text_input("Enter Year (for AI summary)", key="year_input")
+    st.subheader("🤖 AI Team/Year Summary & PDF")
+    team_input_ai = st.text_input("Enter Team", key="team_input_ai")
+    year_input_ai = st.text_input("Enter Year", key="year_input_ai")
 
     groq_api_key = os.getenv("GROQ_API_KEY")
     if groq_api_key:
@@ -170,14 +171,14 @@ def main():
         st.warning("⚠️ Groq API key not found.")
         return
 
-    if st.button("Generate AI Team/Year PDF"):
-        if not team_input or not year_input:
+    if st.button("Generate AI Summary & PDF"):
+        if not team_input_ai or not year_input_ai:
             st.warning("Please enter both Team and Year.")
         else:
             df['date'] = pd.to_datetime(df['date'])
             filtered_ai = df[
-                ((df['team1'] == team_input) | (df['team2'] == team_input)) &
-                (df['date'].dt.year == int(year_input))
+                ((df['team1'] == team_input_ai) | (df['team2'] == team_input_ai)) &
+                (df['date'].dt.year == int(year_input_ai))
             ]
 
             if filtered_ai.empty:
@@ -188,9 +189,9 @@ def main():
                 fig2_ai = make_total_runs_hist_fig(filtered_ai)
                 figs_bytes_ai = [fig_to_bytes(fig1_ai), fig_to_bytes(fig2_ai)]
 
-                # Ask AI for summary
+                # AI summary
                 with st.spinner("Generating AI summary..."):
-                    prompt = f"Summarize ODI matches for {team_input} in {year_input} with top players, winners, and scores."
+                    prompt = f"Summarize ODI matches for {team_input_ai} in {year_input_ai} with top players, winners, and scores."
                     response = client.chat.completions.create(
                         model="llama-3.3-70b-versatile",
                         messages=[
@@ -198,19 +199,24 @@ def main():
                             {"role": "user", "content": prompt}
                         ]
                     )
-                    summary_text = response.choices[0].message.content
+                    summary_text_ai = response.choices[0].message.content
 
                 # Build PDF
-                filters_text_ai = f"Team: {team_input}; Year: {year_input}"
-                pdf_file_ai = build_pdf(f"{team_input} ODI Stats {year_input}", filters_text_ai, summary_text, figs_bytes_ai)
+                filters_text_ai = f"Team: {team_input_ai}; Year: {year_input_ai}"
+                pdf_file_ai = build_pdf(f"{team_input_ai} ODI Stats {year_input_ai}", filters_text_ai, summary_text_ai, figs_bytes_ai)
 
-                st.success("AI PDF Generated ✅")
-                st.download_button("📄 Download AI PDF", data=pdf_file_ai, file_name=f"{team_input}_ODI_{year_input}_report.pdf", mime="application/pdf")
+                st.success("AI Summary & PDF Generated ✅")
                 st.subheader("AI Summary")
-                st.write(summary_text)
+                st.write(summary_text_ai)
+                st.download_button(
+                    "📄 Download AI PDF",
+                    data=pdf_file_ai,
+                    file_name=f"{team_input_ai}_ODI_{year_input_ai}_report.pdf",
+                    mime="application/pdf"
+                )
 
     # --------------------------- #
-    # Groq AI Assistant for Q&A
+    # AI Q&A Section
     # --------------------------- #
     st.markdown("---")
     st.subheader("🤖 Ask AI about ODI Matches")
