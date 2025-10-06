@@ -51,7 +51,7 @@ class PDFReport(FPDF):
 # --------------------------- #
 # PDF Builder
 # --------------------------- #
-def build_pdf(title, filters_text, summary_dict_or_text, fig_bytes_list):
+def build_pdf(title, filters_text, summary_dict_or_text, fig_bytes_list=[]):
     pdf = PDFReport()
     pdf.add_page()
     pdf.set_font('Arial', 'B', 20)
@@ -157,7 +157,7 @@ def main():
         st.download_button("📄 Download PDF", data=pdf_file, file_name="odi_matches_report.pdf", mime="application/pdf")
 
     # --------------------------- #
-    # AI Team/Year PDF (Separate Button)
+    # AI Team/Year Summary
     # --------------------------- #
     st.markdown("---")
     st.subheader("🤖 AI Team/Year Summary & PDF")
@@ -165,16 +165,16 @@ def main():
     year_input_ai = st.text_input("Enter Year", key="year_input_ai")
 
     groq_api_key = os.getenv("GROQ_API_KEY")
-    if groq_api_key:
-        client = Groq(api_key=groq_api_key)
-    else:
+    client = Groq(api_key=groq_api_key) if groq_api_key else None
+    if not client:
         st.warning("⚠️ Groq API key not found.")
-        return
+
+    summary_text_ai = None
 
     if st.button("Generate AI Summary & PDF"):
         if not team_input_ai or not year_input_ai:
             st.warning("Please enter both Team and Year.")
-        else:
+        elif client:
             df['date'] = pd.to_datetime(df['date'])
             filtered_ai = df[
                 ((df['team1'] == team_input_ai) | (df['team2'] == team_input_ai)) &
@@ -201,19 +201,21 @@ def main():
                     )
                     summary_text_ai = response.choices[0].message.content
 
-                # Build PDF
-                filters_text_ai = f"Team: {team_input_ai}; Year: {year_input_ai}"
-                pdf_file_ai = build_pdf(f"{team_input_ai} ODI Stats {year_input_ai}", filters_text_ai, summary_text_ai, figs_bytes_ai)
-
-                st.success("AI Summary & PDF Generated ✅")
+                # Display summary
+                st.success("AI Summary Generated ✅")
                 st.subheader("AI Summary")
                 st.write(summary_text_ai)
-                st.download_button(
-                    "📄 Download AI PDF",
-                    data=pdf_file_ai,
-                    file_name=f"{team_input_ai}_ODI_{year_input_ai}_report.pdf",
-                    mime="application/pdf"
-                )
+
+                # Separate PDF button for the AI summary
+                if st.button("📄 Download AI Summary PDF"):
+                    filters_text_ai = f"Team: {team_input_ai}; Year: {year_input_ai}"
+                    pdf_file_ai = build_pdf("AI ODI Summary", filters_text_ai, summary_text_ai, figs_bytes_ai)
+                    st.download_button(
+                        "📄 Download PDF",
+                        data=pdf_file_ai,
+                        file_name=f"{team_input_ai}_ODI_AI_summary.pdf",
+                        mime="application/pdf"
+                    )
 
     # --------------------------- #
     # AI Q&A Section
@@ -222,23 +224,21 @@ def main():
     st.subheader("🤖 Ask AI about ODI Matches")
     user_question = st.text_input("Ask any question about ODI matches or this dataset:", key="qna_input")
 
-    if groq_api_key:
-        client = Groq(api_key=groq_api_key)
-        if st.button("Ask AI Question"):
-            if user_question.strip():
-                with st.spinner("Thinking..."):
-                    response = client.chat.completions.create(
-                        model="llama-3.3-70b-versatile",
-                        messages=[
-                            {"role": "system", "content": "You are a cricket data analyst. Answer based on ODI cricket facts."},
-                            {"role": "user", "content": user_question}
-                        ]
-                    )
-                    answer = response.choices[0].message.content
-                    st.success("**AI Answer:**")
-                    st.write(answer)
-            else:
-                st.warning("Please enter a question.")
+    if client and st.button("Ask AI Question"):
+        if user_question.strip():
+            with st.spinner("Thinking..."):
+                response = client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=[
+                        {"role": "system", "content": "You are a cricket data analyst. Answer based on ODI cricket facts."},
+                        {"role": "user", "content": user_question}
+                    ]
+                )
+                answer = response.choices[0].message.content
+                st.success("**AI Answer:**")
+                st.write(answer)
+        else:
+            st.warning("Please enter a question.")
 
 if __name__ == "__main__":
     main()
