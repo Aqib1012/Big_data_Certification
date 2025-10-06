@@ -167,7 +167,7 @@ def main():
     if not client:
         st.warning("⚠️ Groq API key not found.")
 
-    # User generates AI summary via a button or some other method
+    # Store AI summary in session
     if 'ai_summary' not in st.session_state:
         st.session_state.ai_summary = ""
 
@@ -199,7 +199,7 @@ def main():
             )
 
     # --------------------------- #
-    # AI Q&A Section
+    # AI Q&A Section with PDF
     # --------------------------- #
     st.markdown("---")
     st.subheader("🤖 Ask AI about ODI Matches")
@@ -218,6 +218,19 @@ def main():
                 answer = response.choices[0].message.content
                 st.success("**AI Answer:**")
                 st.write(answer)
+
+                # PDF download for AI answer
+                pdf_file_answer = build_pdf(
+                    title="AI Q&A Answer",
+                    filters_text=f"Question: {user_question}",
+                    summary_dict_or_text=answer
+                )
+                st.download_button(
+                    "📄 Download AI Answer as PDF",
+                    data=pdf_file_answer,
+                    file_name="ODI_AI_QA_answer.pdf",
+                    mime="application/pdf"
+                )
         else:
             st.warning("Please enter a question.")
 
