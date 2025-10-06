@@ -157,53 +157,16 @@ def main():
         st.download_button("📄 Download PDF", data=pdf_file, file_name="odi_matches_report.pdf", mime="application/pdf")
 
     # --------------------------- #
-    # AI Summary without Team/Year input
-    # --------------------------- #
-    st.markdown("---")
-    st.subheader("🤖 AI Summary PDF")
-
-    groq_api_key = os.getenv("GROQ_API_KEY")
-    client = Groq(api_key=groq_api_key) if groq_api_key else None
-    if not client:
-        st.warning("⚠️ Groq API key not found.")
-
-    # Store AI summary in session
-    if 'ai_summary' not in st.session_state:
-        st.session_state.ai_summary = ""
-
-    if st.button("Generate AI Summary"):
-        if client:
-            prompt = "Summarize ODI matches dataset with top players, winners, and notable stats."
-            with st.spinner("Generating AI summary..."):
-                response = client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
-                    messages=[
-                        {"role": "system", "content": "You are a cricket analyst."},
-                        {"role": "user", "content": prompt}
-                    ]
-                )
-                st.session_state.ai_summary = response.choices[0].message.content
-                st.success("AI Summary Generated ✅")
-
-    if st.session_state.ai_summary:
-        st.subheader("AI Summary")
-        st.write(st.session_state.ai_summary)
-
-        if st.button("📄 Download AI Summary PDF"):
-            pdf_file_ai = build_pdf("AI ODI Summary", "AI Generated Summary", st.session_state.ai_summary)
-            st.download_button(
-                "📄 Download PDF",
-                data=pdf_file_ai,
-                file_name="ODI_AI_summary.pdf",
-                mime="application/pdf"
-            )
-
-    # --------------------------- #
     # AI Q&A Section with PDF
     # --------------------------- #
     st.markdown("---")
     st.subheader("🤖 Ask AI about ODI Matches")
     user_question = st.text_input("Ask any question about ODI matches or this dataset:", key="qna_input")
+
+    groq_api_key = os.getenv("GROQ_API_KEY")
+    client = Groq(api_key=groq_api_key) if groq_api_key else None
+    if not client:
+        st.warning("⚠️ Groq API key not found.")
 
     if client and st.button("Ask AI Question"):
         if user_question.strip():
