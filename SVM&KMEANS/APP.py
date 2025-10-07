@@ -15,21 +15,13 @@ st.title("🧠 SVM & K-Means Demonstration")
 # -------------------------------
 st.header("📂 Step 1: Load Datasets")
 
-# Linear dataset (Regression)
+linear_data = pd.read_csv("linear.csv")
+logistic_data = pd.read_csv("logistic.csv")
+
 st.subheader("📈 Linear Dataset (for Regression)")
-linear_data = pd.DataFrame({
-    "X": [1, 2, 3, 4, 5, 6, 7],
-    "Y": [2, 4, 6, 8, 10, 12, 14]
-})
 st.dataframe(linear_data)
 
-# Logistic dataset (Classification)
 st.subheader("🧩 Logistic Dataset (for Classification)")
-logistic_data = pd.DataFrame({
-    "Weather": ["Sunny", "Rainy", "Overcast", "Sunny", "Rainy", "Overcast", "Sunny", "Rainy"],
-    "Temperature": ["Hot", "Mild", "Cool", "Hot", "Mild", "Cool", "Hot", "Cool"],
-    "Play": ["No", "Yes", "Yes", "No", "Yes", "Yes", "No", "Yes"]
-})
 st.dataframe(logistic_data)
 
 # -------------------------------
@@ -37,8 +29,8 @@ st.dataframe(logistic_data)
 # -------------------------------
 st.header("📈 Step 2: SVM Regression (Supervised)")
 
-X = linear_data[["X"]]
-y = linear_data["Y"]
+X = linear_data.iloc[:, :-1]   # all columns except last
+y = linear_data.iloc[:, -1]    # last column
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
@@ -62,28 +54,26 @@ st.pyplot(fig)
 # -------------------------------
 st.header("🧩 Step 3: SVM Classification (Supervised)")
 
-# Copy data to avoid pandas warnings
-X = logistic_data[["Weather", "Temperature"]].copy()
-y = logistic_data["Play"].copy()
+X = logistic_data.iloc[:, :-1].copy()
+y = logistic_data.iloc[:, -1].copy()
 
-# Encode all categorical data
-encoders = {}
+# Encode categorical columns properly
+label_encoders = {}
 for col in X.columns:
-    enc = LabelEncoder()
-    X[col] = enc.fit_transform(X[col])
-    encoders[col] = enc
+    if X[col].dtype == 'object':
+        le = LabelEncoder()
+        X[col] = le.fit_transform(X[col])
+        label_encoders[col] = le
 
-y_enc = LabelEncoder().fit_transform(y)
-
-# Train/test split
-X_train, X_test, y_train, y_test = train_test_split(X, y_enc, test_size=0.3, random_state=42)
+if y.dtype == 'object':
+    y = LabelEncoder().fit_transform(y)
 
 # Scale features
 scaler = StandardScaler()
-X_train = scaler.fit_transform(X_train)
-X_test = scaler.transform(X_test)
+X_scaled = scaler.fit_transform(X)
 
-# Train SVM classifier
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.3, random_state=42)
+
 svm_clf = svm.SVC(kernel='linear')
 svm_clf.fit(X_train, y_train)
 y_pred = svm_clf.predict(X_test)
@@ -96,18 +86,18 @@ st.success(f"✅ SVM Classification Accuracy: {acc*100:.2f}%")
 # -------------------------------
 st.header("🎯 Step 4: K-Means Clustering (Unsupervised)")
 
-cluster_data = pd.DataFrame({
-    "X": [1, 2, 3, 8, 9, 10],
-    "Y": [1, 2, 3, 8, 9, 10]
-})
-st.dataframe(cluster_data)
+cluster_data = linear_data.copy()
+
+# Scale before clustering
+scaled_data = StandardScaler().fit_transform(cluster_data)
 
 kmeans = KMeans(n_clusters=2, random_state=42)
-kmeans.fit(cluster_data)
+kmeans.fit(scaled_data)
+
 cluster_data["Cluster"] = kmeans.labels_
 
 fig2, ax2 = plt.subplots()
-ax2.scatter(cluster_data["X"], cluster_data["Y"], c=cluster_data["Cluster"], cmap="rainbow")
+ax2.scatter(cluster_data.iloc[:, 0], cluster_data.iloc[:, 1], c=cluster_data["Cluster"], cmap="rainbow")
 ax2.set_title("K-Means Clustering Result")
 st.pyplot(fig2)
 
