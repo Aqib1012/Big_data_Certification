@@ -94,6 +94,8 @@ scaled_data = StandardScaler().fit_transform(cluster_data)
 kmeans = KMeans(n_clusters=2, random_state=42)
 kmeans.fit(scaled_data)
 
+
+
 cluster_data["Cluster"] = kmeans.labels_
 
 fig2, ax2 = plt.subplots()
