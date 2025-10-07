@@ -29,8 +29,8 @@ st.dataframe(logistic_data)
 # -------------------------------
 st.header("📈 Step 2: SVM Regression (Supervised)")
 
-X = linear_data.iloc[:, :-1]   # all columns except last
-y = linear_data.iloc[:, -1]    # last column
+X = linear_data.iloc[:, :-1]
+y = linear_data.iloc[:, -1]
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
@@ -41,11 +41,21 @@ y_pred = svm_reg.predict(X_test)
 mse = mean_squared_error(y_test, y_pred)
 st.success(f"✅ Mean Squared Error: {mse:.2f}")
 
-# Plot regression
+# ---- FIXED REGRESSION PLOT ----
 fig, ax = plt.subplots()
-ax.scatter(X, y, color='blue', label='Actual')
-ax.plot(X, svm_reg.predict(X), color='red', label='SVM Line')
-ax.set_title("SVM Regression Result")
+if X.shape[1] == 1:
+    # Single feature → simple 2D scatter
+    ax.scatter(X, y, color='blue', label='Actual')
+    ax.plot(X, svm_reg.predict(X), color='red', label='SVM Line')
+    ax.set_xlabel(X.columns[0])
+    ax.set_ylabel(y.name)
+else:
+    # Multi-feature → show only first feature vs target for visualization
+    ax.scatter(X.iloc[:, 0], y, color='blue', label='Actual')
+    ax.scatter(X.iloc[:, 0], svm_reg.predict(X), color='red', label='Predicted')
+    ax.set_xlabel(X.columns[0])
+    ax.set_ylabel(y.name)
+ax.set_title("SVM Regression Visualization")
 ax.legend()
 st.pyplot(fig)
 
@@ -57,14 +67,10 @@ st.header("🧩 Step 3: SVM Classification (Supervised)")
 X = logistic_data.iloc[:, :-1].copy()
 y = logistic_data.iloc[:, -1].copy()
 
-# Encode categorical columns properly
-label_encoders = {}
+# Encode categorical columns
 for col in X.columns:
     if X[col].dtype == 'object':
-        le = LabelEncoder()
-        X[col] = le.fit_transform(X[col])
-        label_encoders[col] = le
-
+        X[col] = LabelEncoder().fit_transform(X[col])
 if y.dtype == 'object':
     y = LabelEncoder().fit_transform(y)
 
@@ -87,19 +93,13 @@ st.success(f"✅ SVM Classification Accuracy: {acc*100:.2f}%")
 st.header("🎯 Step 4: K-Means Clustering (Unsupervised)")
 
 cluster_data = linear_data.copy()
-
-# Scale before clustering
 scaled_data = StandardScaler().fit_transform(cluster_data)
 
 kmeans = KMeans(n_clusters=2, random_state=42)
 kmeans.fit(scaled_data)
-
-
-
 cluster_data["Cluster"] = kmeans.labels_
 
 fig2, ax2 = plt.subplots()
-
 ax2.scatter(cluster_data.iloc[:, 0], cluster_data.iloc[:, 1], c=cluster_data["Cluster"], cmap="rainbow")
 ax2.set_title("K-Means Clustering Result")
 st.pyplot(fig2)
