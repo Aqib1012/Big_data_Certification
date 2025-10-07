@@ -15,7 +15,7 @@ st.title("🧠 SVM & K-Means Demonstration")
 # -------------------------------
 st.header("📂 Step 1: Load Datasets")
 
-# Linear dataset for regression
+# Linear dataset (Regression)
 st.subheader("📈 Linear Dataset (for Regression)")
 linear_data = pd.DataFrame({
     "X": [1, 2, 3, 4, 5, 6, 7],
@@ -23,7 +23,7 @@ linear_data = pd.DataFrame({
 })
 st.dataframe(linear_data)
 
-# Logistic dataset for classification
+# Logistic dataset (Classification)
 st.subheader("🧩 Logistic Dataset (for Classification)")
 logistic_data = pd.DataFrame({
     "Weather": ["Sunny", "Rainy", "Overcast", "Sunny", "Rainy", "Overcast", "Sunny", "Rainy"],
@@ -49,10 +49,10 @@ y_pred = svm_reg.predict(X_test)
 mse = mean_squared_error(y_test, y_pred)
 st.success(f"✅ Mean Squared Error: {mse:.2f}")
 
-# Plot Regression Results
+# Plot regression
 fig, ax = plt.subplots()
 ax.scatter(X, y, color='blue', label='Actual')
-ax.plot(X, svm_reg.predict(X), color='red', label='SVM Regression Line')
+ax.plot(X, svm_reg.predict(X), color='red', label='SVM Line')
 ax.set_title("SVM Regression Result")
 ax.legend()
 st.pyplot(fig)
@@ -62,30 +62,34 @@ st.pyplot(fig)
 # -------------------------------
 st.header("🧩 Step 3: SVM Classification (Supervised)")
 
-X = logistic_data[["Weather", "Temperature"]]
-y = logistic_data["Play"]
+# Copy data to avoid pandas warnings
+X = logistic_data[["Weather", "Temperature"]].copy()
+y = logistic_data["Play"].copy()
 
-# Encode categorical columns
-encoder = LabelEncoder()
+# Encode all categorical data
+encoders = {}
 for col in X.columns:
-    X[col] = encoder.fit_transform(X[col])
-y = encoder.fit_transform(y)
+    enc = LabelEncoder()
+    X[col] = enc.fit_transform(X[col])
+    encoders[col] = enc
 
-# Split
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+y_enc = LabelEncoder().fit_transform(y)
 
-# Scale for better SVM performance
+# Train/test split
+X_train, X_test, y_train, y_test = train_test_split(X, y_enc, test_size=0.3, random_state=42)
+
+# Scale features
 scaler = StandardScaler()
 X_train = scaler.fit_transform(X_train)
 X_test = scaler.transform(X_test)
 
-# Train classifier
+# Train SVM classifier
 svm_clf = svm.SVC(kernel='linear')
 svm_clf.fit(X_train, y_train)
 y_pred = svm_clf.predict(X_test)
 
-accuracy = accuracy_score(y_test, y_pred)
-st.success(f"✅ SVM Classification Accuracy: {accuracy*100:.2f}%")
+acc = accuracy_score(y_test, y_pred)
+st.success(f"✅ SVM Classification Accuracy: {acc*100:.2f}%")
 
 # -------------------------------
 # Step 4: K-Means Clustering
@@ -102,7 +106,6 @@ kmeans = KMeans(n_clusters=2, random_state=42)
 kmeans.fit(cluster_data)
 cluster_data["Cluster"] = kmeans.labels_
 
-# Plot clusters
 fig2, ax2 = plt.subplots()
 ax2.scatter(cluster_data["X"], cluster_data["Y"], c=cluster_data["Cluster"], cmap="rainbow")
 ax2.set_title("K-Means Clustering Result")
